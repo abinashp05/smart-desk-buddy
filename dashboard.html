@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Desk Buddy</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Smart Desk Buddy</h1>
+            <p>AI-Powered Posture Monitoring</p>
+        </header>
+
+        <main>
+            <div class="status-card">
+                <h2>Current Posture</h2>
+                <div class="posture-indicator" id="posture-indicator"></div>
+                <p id="posture-status">Loading...</p>
+                <p id="system-status">Initializing...</p>
+            </div>
+
+            <div class="webcam-feed">
+                <h2>Live Webcam Feed</h2>
+                <img id="video-feed" src="http://localhost:5000/video_feed" alt="Webcam Feed">
+            </div>
+
+            <div class="history-log">
+                <h2>Posture History</h2>
+                <ul id="posture-history-list"></ul>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

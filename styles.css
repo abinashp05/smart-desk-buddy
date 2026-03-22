@@ -1,0 +1,144 @@
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a2e;
+    color: #e0e0e0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.container {
+    background-color: #16213e;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    padding: 30px;
+    width: 90%;
+    max-width: 1200px;
+    text-align: center;
+    margin: 20px;
+}
+
+header h1 {
+    color: #0f3460;
+    margin-bottom: 5px;
+}
+
+header p {
+    color: #e94560;
+    font-size: 1.1em;
+    margin-top: 0;
+}
+
+main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-top: 30px;
+}
+
+@media (min-width: 768px) {
+    main {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (min-width: 1024px) {
+    main {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+.status-card, .webcam-feed, .history-log {
+    background-color: #0f3460;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.status-card h2, .webcam-feed h2, .history-log h2 {
+    color: #e94560;
+    margin-top: 0;
+    border-bottom: 2px solid #1a1a2e;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.posture-indicator {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin: 20px auto;
+    background-color: #555;
+    transition: background-color 0.5s ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2em;
+    color: #fff;
+    border: 5px solid #333;
+}
+
+.posture-indicator.good {
+    background-color: #28a745; /* Green */
+    border-color: #218838;
+}
+
+.posture-indicator.bad {
+    background-color: #dc3545; /* Red */
+    border-color: #c82333;
+}
+
+#posture-status {
+    font-size: 1.8em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #e0e0e0;
+}
+
+#system-status {
+    font-size: 1.1em;
+    color: #bbb;
+}
+
+.webcam-feed img {
+    width: 100%;
+    border-radius: 5px;
+    border: 1px solid #1a1a2e;
+}
+
+.history-log ul {
+    list-style: none;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.history-log li {
+    background-color: #1a1a2e;
+    margin-bottom: 8px;
+    padding: 10px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+}
+
+.history-log li.good {
+    border-left: 5px solid #28a745;
+}
+
+.history-log li.bad {
+    border-left: 5px solid #dc3545;
+}
+
+.history-log li span.time {
+    color: #bbb;
+    font-size: 0.8em;
+}
