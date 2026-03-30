@@ -1,83 +1,165 @@
-
 import cv2
 import mediapipe as mp
 import numpy as np
 
 class PostureDetector:
     def __init__(self):
-        self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+        self.mp_holistic = mp.solutions.holistic
+        self.mp_face_mesh = mp.solutions.face_mesh
+        self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_drawing_styles = mp.solutions.drawing_styles
 
-    def _calculate_angle(self, a, b, c):
-        a = np.array(a)  # First
-        b = np.array(b)  # Mid
-        c = np.array(c)  # End
+        # Holistic model — pose + face + hands combined
+        self.holistic = self.mp_holistic.Holistic(
+            min_detection_confidence=0.3,
+            min_tracking_confidence=0.3,
+            model_complexity=1
+        )
 
-        radians = np.arctan2(c[1] - b[1], c[0] - b[0]) - np.arctan2(a[1] - b[1], a[0] - b[0])
-        angle = np.abs(radians * 180.0 / np.pi)
+        # FaceMesh for precise head/eye tracking
+        self.face_mesh = self.mp_face_mesh.FaceMesh(
+            max_num_faces=1,
+            refine_landmarks=True,
+            min_detection_confidence=0.3,
+            min_tracking_confidence=0.3
+        )
 
-        if angle > 180.0:
-            angle = 360 - angle
-        return angle
+        self.issues = []
+        print("✅ PostureDetector initialized with Holistic + FaceMesh")
+
+    def _get_coords(self, landmark):
+        return [landmark.x, landmark.y]
+
+    def _is_visible(self, landmark, threshold=0.4):
+        return landmark.visibility > threshold
 
     def detect_posture(self, frame):
-        # Convert the image to RGB
+        h, w = frame.shape[:2]
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image.flags.writeable = False
 
-        # Make detection
-        results = self.pose.process(image)
+        # Run both models
+        holistic_results  = self.holistic.process(image)
+        facemesh_results  = self.face_mesh.process(image)
 
-        # Convert back to BGR
         image.flags.writeable = True
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-        posture_status = "GOOD"
         display_frame = frame.copy()
 
-        try:
-            landmarks = results.pose_landmarks.landmark
+        posture_status = "UNKNOWN"
+        self.issues = []
 
-            # Get coordinates for head/neck
-            nose = [landmarks[self.mp_pose.PoseLandmark.NOSE.value].x, landmarks[self.mp_pose.PoseLandmark.NOSE.value].y]
-            left_shoulder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
-            right_shoulder = [landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x, landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
-            left_ear = [landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].y]
-            right_ear = [landmarks[self.mp_pose.PoseLandmark.RIGHT_EAR.value].x, landmarks[self.mp_pose.PoseLandmark.RIGHT_EAR.value].y]
-
-            # Calculate average shoulder position
-            shoulder_x = (left_shoulder[0] + right_shoulder[0]) / 2
-            shoulder_y = (left_shoulder[1] + right_shoulder[1]) / 2
-            avg_shoulder = [shoulder_x, shoulder_y]
-
-            # Calculate average ear position
-            ear_x = (left_ear[0] + right_ear[0]) / 2
-            ear_y = (left_ear[1] + right_ear[1]) / 2
-            avg_ear = [ear_x, ear_y]
-
-            # Simple logic for posture detection
-            # Check if head is too far forward (nose relative to shoulders)
-            # A smaller x-coordinate for nose than shoulders indicates leaning forward
-            if nose[0] < avg_shoulder[0] - 0.05: # Threshold can be adjusted
-                posture_status = "BAD"
-            # Check if head is too low (nose relative to shoulders)
-            elif nose[1] > avg_shoulder[1] + 0.1: # Threshold can be adjusted
-                posture_status = "BAD"
-            # Check for slouching (ear relative to shoulder)
-            elif avg_ear[1] > avg_shoulder[1] - 0.05: # If ears are too low compared to shoulders
-                posture_status = "BAD"
-
-            # Draw landmarks and connections (optional, for visualization)
-            mp.solutions.drawing_utils.draw_landmarks(
-                display_frame, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS,
-                mp.solutions.drawing_utils.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2),
-                mp.solutions.drawing_utils.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
+        # ── DRAW holistic landmarks ──
+        if holistic_results.pose_landmarks:
+            self.mp_drawing.draw_landmarks(
+                display_frame,
+                holistic_results.pose_landmarks,
+                self.mp_holistic.POSE_CONNECTIONS,
+                landmark_drawing_spec=self.mp_drawing.DrawingSpec(
+                    color=(0, 255, 0), thickness=2, circle_radius=3),
+                connection_drawing_spec=self.mp_drawing.DrawingSpec(
+                    color=(0, 180, 255), thickness=2)
             )
 
-        except:
-            pass # No pose detected
+        # ── DRAW face mesh landmarks ──
+        if facemesh_results.multi_face_landmarks:
+            for face_landmarks in facemesh_results.multi_face_landmarks:
+                self.mp_drawing.draw_landmarks(
+                    display_frame,
+                    face_landmarks,
+                    self.mp_face_mesh.FACEMESH_CONTOURS,
+                    landmark_drawing_spec=self.mp_drawing.DrawingSpec(
+                        color=(255, 200, 0), thickness=1, circle_radius=1),
+                    connection_drawing_spec=self.mp_drawing.DrawingSpec(
+                        color=(255, 200, 0), thickness=1)
+                )
+
+        # ── POSTURE CHECKS ──
+        pose_lm = holistic_results.pose_landmarks
+
+        if pose_lm is None:
+            cv2.putText(display_frame, "Show upper body", (30, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            return "UNKNOWN", display_frame
+
+        lm = pose_lm.landmark
+        PL = self.mp_holistic.PoseLandmark
+
+        left_shoulder  = self._get_coords(lm[PL.LEFT_SHOULDER.value])
+        right_shoulder = self._get_coords(lm[PL.RIGHT_SHOULDER.value])
+        left_ear       = self._get_coords(lm[PL.LEFT_EAR.value])
+        right_ear      = self._get_coords(lm[PL.RIGHT_EAR.value])
+
+        avg_shoulder = [(left_shoulder[0]+right_shoulder[0])/2,
+                        (left_shoulder[1]+right_shoulder[1])/2]
+        avg_ear      = [(left_ear[0]+right_ear[0])/2,
+                        (left_ear[1]+right_ear[1])/2]
+
+        posture_status = "GOOD"
+
+        # ── CHECK 1: Forward head lean (from Holistic) ──
+        ear_x_diff = abs(avg_ear[0] - avg_shoulder[0])
+        if ear_x_diff > 0.1:
+            self.issues.append("Forward head lean")
+            posture_status = "BAD"
+
+        # ── CHECK 2: Head drooping down (from Holistic) ──
+        if avg_ear[1] > avg_shoulder[1] - 0.03:
+            self.issues.append("Head drooping down")
+            posture_status = "BAD"
+
+        # ── CHECK 3: Shoulder asymmetry (from Holistic) ──
+        shoulder_tilt = abs(left_shoulder[1] - right_shoulder[1])
+        if shoulder_tilt > 0.08:
+            self.issues.append("Uneven shoulders")
+            posture_status = "BAD"
+
+        # ── CHECK 4: Eye strain / screen distance (from FaceMesh) ──
+        if facemesh_results.multi_face_landmarks:
+            face_lm = facemesh_results.multi_face_landmarks[0].landmark
+
+            # Use eye landmarks to estimate distance
+            # Landmark 33 = left eye outer, 263 = right eye outer
+            left_eye  = face_lm[33]
+            right_eye = face_lm[263]
+            eye_distance = abs(left_eye.x - right_eye.x)
+
+            # Also check head tilt using eye Y difference
+            eye_tilt = abs(left_eye.y - right_eye.y)
+
+            if eye_distance > 0.40:
+                self.issues.append("Too close to screen")
+                posture_status = "BAD"
+            elif eye_distance < 0.12:
+                self.issues.append("Too far from screen")
+                posture_status = "BAD"
+
+            if eye_tilt > 0.04:
+                self.issues.append("Head tilted sideways")
+                posture_status = "BAD"
+
+            # Draw eye distance indicator on frame
+            cv2.putText(display_frame,
+                        f"Eye span: {eye_distance:.2f}",
+                        (30, display_frame.shape[0] - 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                        (255, 255, 0), 1)
+
+        # ── DISPLAY status ──
+        color = (0, 255, 0) if posture_status == "GOOD" else (0, 0, 255)
+        cv2.putText(display_frame, f"Posture: {posture_status}",
+                    (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.1, color, 3)
+
+        for i, issue in enumerate(self.issues):
+            cv2.putText(display_frame, f"  {issue}",
+                        (30, 95 + i * 32),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                        (0, 165, 255), 2)
 
         return posture_status, display_frame
 
+    def get_issues(self):
+        return self.issues
+
     def __del__(self):
-        self.pose.close()
+        self.holistic.close()
+        self.face_mesh.close()
