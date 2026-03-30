@@ -1,62 +1,84 @@
+const ringFill    = document.getElementById('ring-fill');
+const ringEmoji   = document.getElementById('ring-emoji');
+const statusText  = document.getElementById('posture-status');
+const systemText  = document.getElementById('system-status');
+const historyList = document.getElementById('posture-history-list');
+const issuesList  = document.getElementById('issues-list');
+const videoFeed   = document.getElementById('video-feed');
+const statGood    = document.getElementById('stat-good');
+const statBad     = document.getElementById('stat-bad');
+const statSession = document.getElementById('stat-session');
+const statScore   = document.getElementById('stat-score');
 
-document.addEventListener("DOMContentLoaded", function() {
-    const postureIndicator = document.getElementById("posture-indicator");
-    const postureStatusText = document.getElementById("posture-status");
-    const systemStatusText = document.getElementById("system-status");
-    const postureHistoryList = document.getElementById("posture-history-list");
-    const videoFeed = document.getElementById("video-feed");
+let lastPosture = '';
+let goodCount = 0;
+let badCount = 0;
+let sessionStart = Date.now();
 
-    let lastPosture = "";
+function formatTime(ms) {
+    const s = Math.floor(ms/1000);
+    return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+}
 
-    function updateDashboard() {
-        fetch("http://localhost:5000/status")
-            .then(response => response.json())
-            .then(data => {
-                const { status, system } = data;
+function updateStatus(status, system, issues) {
+    ringFill.className = 'ring-fill ' + status.toLowerCase();
+    statusText.className = 'posture-status-text ' + status.toLowerCase();
+    statusText.textContent = status;
+    systemText.textContent = system;
 
-                postureStatusText.textContent = status;
-                systemStatusText.textContent = system;
+    if (status === 'GOOD') { ringEmoji.textContent = '✅'; goodCount++; }
+    else if (status === 'BAD') { ringEmoji.textContent = '⚠️'; badCount++; }
+    else { ringEmoji.textContent = '⏳'; }
 
-                if (status === "GOOD") {
-                    postureIndicator.className = "posture-indicator good";
-                } else if (status === "BAD") {
-                    postureIndicator.className = "posture-indicator bad";
-                } else {
-                    postureIndicator.className = "posture-indicator";
-                }
-
-                // Update history log only if posture status changes
-                if (status !== lastPosture) {
-                    const now = new Date();
-                    const timeString = now.toLocaleTimeString();
-                    const listItem = document.createElement("li");
-                    listItem.className = status.toLowerCase();
-                    listItem.innerHTML = `<span>${status}</span> <span class="time">${timeString}</span>`;
-                    postureHistoryList.prepend(listItem); // Add to the top
-
-                    // Keep log clean, max 10 entries
-                    if (postureHistoryList.children.length > 10) {
-                        postureHistoryList.removeChild(postureHistoryList.lastChild);
-                    }
-                    lastPosture = status;
-                }
-            })
-            .catch(error => {
-                console.error("Error fetching status:", error);
-                postureStatusText.textContent = "Error";
-                systemStatusText.textContent = "Monitoring Offline";
-                postureIndicator.className = "posture-indicator";
-            });
+    issuesList.innerHTML = '';
+    if (issues && issues.length > 0) {
+        issues.forEach(issue => {
+            const div = document.createElement('div');
+            div.className = 'issue-item';
+            div.innerHTML = `⚡ ${issue}`;
+            issuesList.appendChild(div);
+        });
     }
 
-    // Update dashboard every 1 second
-    setInterval(updateDashboard, 1000);
+    statGood.textContent = goodCount;
+    statBad.textContent  = badCount;
+    const total = goodCount + badCount;
+    statScore.textContent = total === 0 ? '—' : Math.round((goodCount/total)*100);
 
-    // Refresh video feed image periodically to ensure it's live
-    // The browser might cache the image, so appending a timestamp helps
-    setInterval(() => {
-        videoFeed.src = `http://localhost:5000/video_feed?timestamp=${new Date().getTime()}`;
-    }, 100);
+    if (status !== lastPosture) {
+        const now = new Date().toLocaleTimeString();
+        const li = document.createElement('li');
+        li.className = 'history-item ' + status.toLowerCase();
+        li.innerHTML = `
+            <div class="h-left">
+                <div class="h-dot"></div>
+                <span class="h-label">${status}</span>
+            </div>
+            <span class="h-time">${now}</span>`;
+        historyList.prepend(li);
+        if (historyList.children.length > 15)
+            historyList.removeChild(historyList.lastChild);
+        lastPosture = status;
+    }
+}
 
-    updateDashboard(); // Initial call
-});
+function fetchStatus() {
+    fetch('http://localhost:5000/status')
+        .then(r => r.json())
+        .then(data => updateStatus(
+            data.status || 'UNKNOWN',
+            data.system  || 'Monitoring Active',
+            data.issues  || []
+        ))
+        .catch(() => updateStatus('UNKNOWN', 'Server Offline', []));
+}
+
+setInterval(fetchStatus, 1000);
+setInterval(() => {
+    statSession.textContent = formatTime(Date.now() - sessionStart);
+}, 1000);
+setInterval(() => {
+    videoFeed.src = `http://localhost:5000/video_feed?t=${Date.now()}`;
+}, 100);
+
+fetchStatus();
