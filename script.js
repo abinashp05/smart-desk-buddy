@@ -10,25 +10,25 @@ const statBad     = document.getElementById('stat-bad');
 const statSession = document.getElementById('stat-session');
 const statScore   = document.getElementById('stat-score');
 
-let lastPosture = '';
-let goodCount = 0;
-let badCount = 0;
+let lastPosture  = '';
+let goodCount    = 0;
+let badCount     = 0;
 let sessionStart = Date.now();
 
 function formatTime(ms) {
-    const s = Math.floor(ms/1000);
+    const s = Math.floor(ms / 1000);
     return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
 }
 
 function updateStatus(status, system, issues) {
-    ringFill.className = 'ring-fill ' + status.toLowerCase();
+    ringFill.className  = 'ring-fill ' + status.toLowerCase();
     statusText.className = 'posture-status-text ' + status.toLowerCase();
     statusText.textContent = status;
     systemText.textContent = system;
 
-    if (status === 'GOOD') { ringEmoji.textContent = '✅'; goodCount++; }
-    else if (status === 'BAD') { ringEmoji.textContent = '⚠️'; badCount++; }
-    else { ringEmoji.textContent = '⏳'; }
+    if (status === 'GOOD')      { ringEmoji.textContent = '✅'; goodCount++; }
+    else if (status === 'BAD')  { ringEmoji.textContent = '⚠️'; badCount++; }
+    else                        { ringEmoji.textContent = '⏳'; }
 
     issuesList.innerHTML = '';
     if (issues && issues.length > 0) {
@@ -43,11 +43,11 @@ function updateStatus(status, system, issues) {
     statGood.textContent = goodCount;
     statBad.textContent  = badCount;
     const total = goodCount + badCount;
-    statScore.textContent = total === 0 ? '—' : Math.round((goodCount/total)*100);
+    statScore.textContent = total === 0 ? '—' : Math.round((goodCount / total) * 100);
 
     if (status !== lastPosture) {
         const now = new Date().toLocaleTimeString();
-        const li = document.createElement('li');
+        const li  = document.createElement('li');
         li.className = 'history-item ' + status.toLowerCase();
         li.innerHTML = `
             <div class="h-left">
