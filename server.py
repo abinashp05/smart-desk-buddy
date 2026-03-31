@@ -69,7 +69,6 @@ def detect_posture_from_webcam():
     bad_start_time = None
     alarm_active = False
     was_bad_before = False
-    prev_status = ""   # 🔥 IMPORTANT
 
     video_capture = cv2.VideoCapture(0)
 
@@ -100,33 +99,28 @@ def detect_posture_from_webcam():
             if bad_duration >= 3:
                 alarm_active = True
                 was_bad_before = True
-
         else:
             bad_start_time = None
             alarm_active = False
 
-        # ── SEND TO ESP32 (ONLY WHEN CHANGED) ──
         # ── SEND TO ESP32 (CONTINUOUS) ──
-# ── SEND TO ESP32 ──
-if alarm_active:
-    status = "BAD"
-else:
-    status = "GOOD"
+        if alarm_active:
+            status = "BAD"
+        else:
+            status = "GOOD"
 
-send_alert_to_esp32(status)
+        send_alert_to_esp32(status)
+        print("Sending:", status)
 
-print("Sending:", status)
+        # ── VOICE LOGIC ──
+        if status == "BAD":
+            voice_assistant.alert_bad_posture(issues)
+        else:
+            if was_bad_before:
+                voice_assistant.alert_posture_corrected()
+                was_bad_before = False
 
-# voice logic
-if status == "BAD":
-    voice_assistant.alert_bad_posture(issues)
-else:
-    if was_bad_before:
-        voice_assistant.alert_posture_corrected()
-        was_bad_before = False
-
-prev_status = status
-        # Update globals
+        # ── UPDATE GLOBALS ──
         current_posture_status = posture
         current_issues = issues
 
